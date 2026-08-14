@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import healthRoutes from './routes/health.routes';
+import authRoutes from './routes/auth.routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -13,9 +14,10 @@ app.use(cookieParser());
 app.use(express.json());
 
 app.use('/health', healthRoutes);
+app.use('/auth', authRoutes);
 // later phases mount here: app.use('/auth', authRoutes); app.use('/flights', flightRoutes); etc.
 
 app.use(notFoundHandler);
-app.use(errorHandler); // must be last
+app.use(errorHandler); 
 
 export default app;

@@ -9,7 +9,6 @@ export class AppError extends Error {
   }
 }
 
-// convenience factories you'll use constantly
 export const badRequest = (msg: string, code = 'BAD_REQUEST') => new AppError(msg, 400, code);
 export const unauthorized = (msg = 'Unauthorized', code = 'UNAUTHORIZED') => new AppError(msg, 401, code);
 export const forbidden = (msg = 'Forbidden', code = 'FORBIDDEN') => new AppError(msg, 403, code);
