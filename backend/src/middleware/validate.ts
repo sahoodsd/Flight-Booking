@@ -4,6 +4,14 @@ import { badRequest } from '../utils/AppError';
 
 type Target = 'body' | 'query' | 'params';
 
+declare global {
+  namespace Express {
+    interface Request {
+      validated?: Record<string, any>;
+    }
+  }
+}
+
 export const validate = (schema: ZodSchema, target: Target = 'body') =>
   (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req[target]);
@@ -11,6 +19,11 @@ export const validate = (schema: ZodSchema, target: Target = 'body') =>
       const message = result.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ');
       return next(badRequest(message, 'VALIDATION_ERROR'));
     }
-    req[target] = result.data;
+
+    if (target === 'body') {
+      req.body = result.data;
+    } else {
+      req.validated = result.data;
+    }
     next();
   };
