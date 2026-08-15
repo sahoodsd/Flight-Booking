@@ -60,11 +60,11 @@ export async function adjustSeats(flightId: number, delta: number, client: PoolC
   const result = await client.query(
     `UPDATE flights SET seats_available = seats_available + $1
      WHERE id = $2 AND seats_available + $1 >= 0
-     RETURNING seats_available`,
+     RETURNING seats_available, fare_cents`,
     [delta, flightId]
   );
   if (result.rowCount === 0) throw conflict('Not enough seats available', 'SOLD_OUT');
-  return result.rows[0].seats_available;
+  return result.rows[0];
 }
 
 export async function createFlight(data: {

@@ -6,6 +6,7 @@ import healthRoutes from './routes/health.routes';
 import authRoutes from './routes/auth.routes';
 import flightRoutes from './routes/flight.routes';
 import adminFlightRoutes from './routes/adminFlight.routes';
+import bookingRoutes from './routes/booking.routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -19,7 +20,7 @@ app.use('/health', healthRoutes);
 app.use('/auth', authRoutes);
 app.use('/flights', flightRoutes);
 app.use('/admin/flights', adminFlightRoutes);
-// later phases mount here: app.use('/auth', authRoutes); app.use('/flights', flightRoutes); etc.
+app.use('/bookings', bookingRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler); 
