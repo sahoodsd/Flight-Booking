@@ -9,6 +9,13 @@ import * as bookingController from '../controllers/booking.controller';
 const bookingLimiter = rateLimit({ windowMs: 60 * 1000, max: 10 });
 const router = Router();
 
-router.post('/', requireAuth, bookingLimiter, validate(createBookingSchema), asyncHandler(bookingController.create));
+router.post(
+  '/',
+  requireAuth,
+  bookingLimiter,
+  validate(createBookingSchema),
+  asyncHandler(bookingController.create),
+);
+router.post('/:id/cancel', requireAuth, asyncHandler(bookingController.cancel));
 
 export default router;

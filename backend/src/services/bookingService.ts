@@ -1,6 +1,6 @@
 import { withTransaction } from '../../db/transaction';
 import * as flightService from './flightService';
-import { notFound, forbidden } from '../utils/AppError';
+import { conflict, badRequest, forbidden, notFound } from '../utils/AppError';
 import { stripe } from '../utils/stripeClient';
 import pool from '../../db/pool';
 
@@ -12,6 +12,8 @@ interface PassengerInput {
   email: string;
   contact_number: string;
 }
+
+const CANCELLATION_CUTOFF_HOURS = 24;
 
 export async function createBooking(
   userId: number,
@@ -125,6 +127,74 @@ export async function failBookingPayment(paymentIntentId: string) {
       booking.id,
     ]);
   });
+}
+
+export async function cancelBooking(
+  bookingId: number,
+  actingUserId: number,
+  actingRole: 'user' | 'admin',
+) {
+  const result = await pool.query(
+    `SELECT b.id, b.user_id, b.status, b.flight_id, b.stripe_payment_intent_id, f.departure_date
+     FROM bookings b JOIN flights f ON f.id = b.flight_id
+     WHERE b.id = $1`,
+    [bookingId],
+  );
+  const booking = result.rows[0];
+  if (!booking) throw notFound('Booking not found', 'BOOKING_NOT_FOUND');
+
+  if (actingRole !== 'admin' && booking.user_id !== actingUserId)
+    throw forbidden();
+
+  if (booking.status !== 'confirmed') {
+    throw conflict(
+      'Only confirmed bookings can be cancelled',
+      'INVALID_BOOKING_STATE',
+    );
+  }
+
+  const cutoffMs = CANCELLATION_CUTOFF_HOURS * 60 * 60 * 1000;
+  const withinPolicyWindow =
+    new Date(booking.departure_date).getTime() - Date.now() > cutoffMs;
+
+  if (actingRole !== 'admin' && !withinPolicyWindow) {
+    throw badRequest(
+      `Cancellations must be made at least ${CANCELLATION_CUTOFF_HOURS} hours before departure`,
+      'CANCELLATION_WINDOW_PASSED',
+    );
+  }
+
+
+  const updateResult = await pool.query(
+    `UPDATE bookings SET status = 'cancelled', cancelled_at = now()
+     WHERE id = $1 AND status = 'confirmed' RETURNING *`,
+    [bookingId],
+  );
+  if (updateResult.rowCount === 0) {
+    throw conflict(
+      'Booking was already cancelled or is no longer eligible',
+      'ALREADY_CANCELLED',
+    );
+  }
+
+
+  if (booking.stripe_payment_intent_id) {
+    await stripe.refunds.create({
+      payment_intent: booking.stripe_payment_intent_id,
+    });
+  }
+
+  
+  const passengerCount = await pool.query(
+    'SELECT COUNT(*) FROM passengers WHERE booking_id = $1',
+    [bookingId],
+  );
+  await flightService.adjustSeats(
+    booking.flight_id,
+    parseInt(passengerCount.rows[0].count, 10),
+  );
+
+  return updateResult.rows[0];
 }
 
 async function pool_query(bookingId: number) {
