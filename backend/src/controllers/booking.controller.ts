@@ -19,3 +19,22 @@ export async function cancel(req: Request, res: Response) {
   );
   res.json({ booking });
 }
+
+export async function listMine(req: Request, res: Response) {
+  const { page, limit } = req.validated as any;
+  const result = await bookingService.getOwnBookings(
+    req.user!.userId,
+    page,
+    limit,
+  );
+  res.json(result);
+}
+
+export async function getOne(req: Request, res: Response) {
+  const booking = await bookingService.getBookingById(
+    Number(req.params.id),
+    req.user!.userId,
+    req.user!.role,
+  );
+  res.json({ booking });
+}

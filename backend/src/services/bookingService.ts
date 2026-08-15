@@ -3,6 +3,7 @@ import * as flightService from './flightService';
 import { conflict, badRequest, forbidden, notFound } from '../utils/AppError';
 import { stripe } from '../utils/stripeClient';
 import pool from '../../db/pool';
+import { paginationMeta } from '../utils/pagination';
 
 interface PassengerInput {
   full_name: string;
@@ -81,11 +82,120 @@ export async function getBookingById(
   userId: number,
   role: 'user' | 'admin',
 ) {
-  const result = await pool_query(bookingId);
-  const booking = result;
+  const result = await pool.query(
+    `SELECT b.*, f.airline, f.origin, f.destination, f.departure_date
+     FROM bookings b JOIN flights f ON f.id = b.flight_id
+     WHERE b.id = $1`,
+    [bookingId],
+  );
+  const booking = result.rows[0];
   if (!booking) throw notFound('Booking not found', 'BOOKING_NOT_FOUND');
-  if (role !== 'admin' && booking.user_id !== userId) throw forbidden();
+  if (role !== 'admin' && booking.user_id !== userId) throw forbidden(); // never leaks existence to a non-owner
   return booking;
+}
+
+export async function getOwnBookings(
+  userId: number,
+  page: number,
+  limit: number,
+) {
+  const offset = (page - 1) * limit;
+  const result = await pool.query(
+    `SELECT b.id, b.status, b.total_amount_cents, b.created_at, b.cancelled_at,
+            f.airline, f.origin, f.destination, f.departure_date,
+            COUNT(*) OVER() AS total_count
+     FROM bookings b JOIN flights f ON f.id = b.flight_id
+     WHERE b.user_id = $1
+     ORDER BY b.created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [userId, limit, offset],
+  );
+  const total = result.rows[0]?.total_count
+    ? parseInt(result.rows[0].total_count, 10)
+    : 0;
+  return {
+    bookings: result.rows.map(({ total_count, ...b }) => b),
+    pagination: paginationMeta(page, limit, total),
+  };
+}
+
+export interface AdminBookingFilters {
+  status?: string;
+  date?: string;
+  origin?: string;
+  destination?: string;
+}
+
+export async function getAllBookingsAdmin(
+  filters: AdminBookingFilters,
+  page: number,
+  limit: number,
+) {
+  const conditions: string[] = [];
+  const values: any[] = [];
+
+  if (filters.status) {
+    values.push(filters.status);
+    conditions.push(`b.status = $${values.length}`);
+  }
+  if (filters.date) {
+    values.push(filters.date);
+    conditions.push(`f.departure_date::date = $${values.length}`);
+  }
+  if (filters.origin) {
+    values.push(filters.origin);
+    conditions.push(`f.origin = $${values.length}`);
+  }
+  if (filters.destination) {
+    values.push(filters.destination);
+    conditions.push(`f.destination = $${values.length}`);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const offset = (page - 1) * limit;
+  values.push(limit, offset);
+
+  const result = await pool.query(
+    `SELECT b.id, b.user_id, b.status, b.total_amount_cents, b.created_at, b.cancelled_at,
+            f.airline, f.origin, f.destination, f.departure_date,
+            COUNT(*) OVER() AS total_count
+     FROM bookings b JOIN flights f ON f.id = b.flight_id
+     ${where}
+     ORDER BY b.created_at DESC
+     LIMIT $${values.length - 1} OFFSET $${values.length}`,
+    values,
+  );
+  const total = result.rows[0]?.total_count
+    ? parseInt(result.rows[0].total_count, 10)
+    : 0;
+  return {
+    bookings: result.rows.map(({ total_count, ...b }) => b),
+    pagination: paginationMeta(page, limit, total),
+  };
+}
+
+export async function getDashboardStats() {
+  // one query with FILTER clauses instead of three round trips — avoids the N+1-ish pattern
+  const result = await pool.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE created_at::date = CURRENT_DATE) AS bookings_today,
+      COALESCE(SUM(total_amount_cents) FILTER (WHERE status = 'confirmed'), 0) AS revenue_cents,
+      COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled_count,
+      COUNT(*) FILTER (WHERE status IN ('confirmed', 'cancelled')) AS relevant_count
+    FROM bookings
+  `);
+  const row = result.rows[0];
+  const relevant = parseInt(row.relevant_count, 10);
+  const cancelled = parseInt(row.cancelled_count, 10);
+
+  return {
+    bookings_today: parseInt(row.bookings_today, 10),
+    revenue_cents: parseInt(row.revenue_cents, 10),
+    // cancellation rate = cancelled / (confirmed + cancelled) — bookings that never got past
+    // 'pending'/'failed' aren't counted, since they were never real completed sales to begin with
+    cancellation_rate:
+      relevant === 0 ? 0 : Math.round((cancelled / relevant) * 1000) / 10,
+  };
 }
 
 export async function confirmBookingPayment(paymentIntentId: string) {
@@ -164,7 +274,6 @@ export async function cancelBooking(
     );
   }
 
-
   const updateResult = await pool.query(
     `UPDATE bookings SET status = 'cancelled', cancelled_at = now()
      WHERE id = $1 AND status = 'confirmed' RETURNING *`,
@@ -177,14 +286,12 @@ export async function cancelBooking(
     );
   }
 
-
   if (booking.stripe_payment_intent_id) {
     await stripe.refunds.create({
       payment_intent: booking.stripe_payment_intent_id,
     });
   }
 
-  
   const passengerCount = await pool.query(
     'SELECT COUNT(*) FROM passengers WHERE booking_id = $1',
     [bookingId],
