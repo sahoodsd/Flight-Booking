@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.routes';
 import flightRoutes from './routes/flight.routes';
 import adminFlightRoutes from './routes/adminFlight.routes';
 import bookingRoutes from './routes/booking.routes';
+import webhookRoutes from './routes/webhook.routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -14,6 +15,10 @@ const app = express();
 app.use(helmet());
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true }));
 app.use(cookieParser());
+
+// must come BEFORE express.json() — Stripe needs the raw body for signature verification
+app.use('/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
+
 app.use(express.json());
 
 app.use('/health', healthRoutes);

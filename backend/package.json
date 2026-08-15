@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "dev": "tsx watch src/index.ts",
-  "migrate": "tsx db/migrate.ts",
-  "seed": "tsx db/seed.ts"
+    "dev": "tsx watch src/index.ts",
+    "migrate": "tsx db/migrate.ts",
+    "seed": "tsx db/seed.ts"
   },
   "keywords": [],
   "author": "",
