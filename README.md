@@ -1,4 +1,4 @@
-# Flight Service
+# Flight Booking
 
 This is my submission for the Full Stack Developer. It's a small flight booking system — search flights, book them, pay with Stripe, cancel if you need to. Backend is Node/Express/TypeScript with plain SQL (no ORM), Postgres for the database, React on the frontend.
 
