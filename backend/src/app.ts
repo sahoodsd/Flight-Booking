@@ -10,8 +10,10 @@ import bookingRoutes from './routes/booking.routes';
 import webhookRoutes from './routes/webhook.routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import adminBookingRoutes from './routes/adminBooking.routes';
+import compression from 'compression';
 
 const app = express();
+app.use(compression());
 
 app.use(helmet());
 app.use(
