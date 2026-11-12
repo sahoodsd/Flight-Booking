@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "migrate": "tsx db/migrate.ts",
-    "seed": "tsx db/seed.ts"
+    "seed": "tsx db/seed.ts",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -28,6 +29,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "tsx": "^4.23.12"
+    "tsx": "^4.23.12",
+    "vitest": "^5.1.0"
   }
 }
