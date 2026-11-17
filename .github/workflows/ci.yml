@@ -23,7 +23,7 @@ jobs:
                 --health-retries 10
     
     env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/flight_booking_test
+        DATABASE_URL: 
     runs-on: ubuntu-latest
 
     defaults:

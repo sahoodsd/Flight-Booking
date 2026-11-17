@@ -10,7 +10,7 @@ describe('Get /health',() => {
 
   it('reports the database as connected', async () => {
     const res = await request(app).get('/health')
-
+    console.log(res.status);
     expect(res.status).toBe(200);
     expect(res.body).toEqual({status: 'ok', db : 'connected'})
   })
