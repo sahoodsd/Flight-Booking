@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
-import { stripe } from '../utils/stripeClient';
+import { getStripe } from '../utils/stripeClient';
 import * as bookingService from '../services/bookingService';
 
 export async function handleStripeWebhook(req: Request, res: Response) {
