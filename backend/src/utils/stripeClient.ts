@@ -1,3 +1,10 @@
 import Stripe from 'stripe';
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+let client: Stripe | null = null;
+
+export function getStripe(): Stripe {
+  if (!client) {
+    client = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  }
+  return client;
+}

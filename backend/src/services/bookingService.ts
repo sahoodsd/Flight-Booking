@@ -1,7 +1,7 @@
 import { withTransaction } from '../../db/transaction';
 import * as flightService from './flightService';
 import { conflict, badRequest, forbidden, notFound } from '../utils/AppError';
-import { stripe } from '../utils/stripeClient';
+import { getStripe } from '../utils/stripeClient';
 import pool from '../../db/pool';
 import { paginationMeta } from '../utils/pagination';
 
@@ -55,7 +55,7 @@ export async function createBooking(
     return { ...booking, passengers };
   });
 
-  const paymentIntent = await stripe.paymentIntents.create({
+  const paymentIntent = await getStripe().paymentIntents.create({
     amount: booking.total_amount_cents,
     currency: 'aed',
     metadata: { booking_id: String(booking.id) },
@@ -287,7 +287,7 @@ export async function cancelBooking(
   }
 
   if (booking.stripe_payment_intent_id) {
-    await stripe.refunds.create({
+    await getStripe().refunds.create({
       payment_intent: booking.stripe_payment_intent_id,
     });
   }
