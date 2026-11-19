@@ -9,7 +9,11 @@ export async function handleStripeWebhook(req: Request, res: Response) {
   let event: Stripe.Event;
   try {
     // req.body must be the RAW buffer here, not JSON-parsed — see app.ts wiring below
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
+    event = getStripe().webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET!,
+    );
   } catch (err) {
     // signature invalid = untrusted request, reject without touching any booking state
     return res.status(400).send('Webhook signature verification failed');
